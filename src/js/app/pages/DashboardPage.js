@@ -42,6 +42,10 @@ var DEFAULT_DASHBOARD_ENTITY = 'sensor.pebble_dashboard';
 var HEADER_H = 22;
 var GAP = 3;
 
+// Thick enough to read at arm's length without shrinking the tile's usable
+// area; 2 px was reported as too subtle to find the cursor.
+var SELECT_BORDER = 4;
+
 // How long an armed confirm tile stays armed before it forgets. Long enough to
 // press twice deliberately, short enough that a pocket press later does nothing.
 var CONFIRM_MS = 4000;
@@ -56,7 +60,10 @@ var colours = {
   tileArmed: Feature.color('#FFAA00', 'white'),
   text: Feature.color('white', 'white'),
   textOn: Feature.color('white', 'black'),
-  select: Feature.color('#00AAFF', 'white'),
+  // White reads against every tile state (grey off, green on, red
+  // unavailable, amber armed); the old blue vanished against the header and
+  // was low-contrast on green.
+  select: Feature.color('white', 'white'),
 };
 
 // States that mean "this thing is on right now". Everything else is treated as
@@ -265,7 +272,7 @@ class DashboardPage extends BasePage {
                 size: new Vector2(tileW, tileH),
                 backgroundColor: colours.tile,
                 borderColor: 'clear',
-                borderWidth: 2,
+                borderWidth: 0,
             });
             wind.add(rect);
 
@@ -331,11 +338,22 @@ class DashboardPage extends BasePage {
                 stateLabel = 'confirm?';
             }
 
+            // Selection is marked two ways, because a thin border alone was
+            // hard to pick out at a glance: a thick bright frame, and a caret
+            // on the state line.
+            //
+            // Deliberately NOT done by recolouring the tile: the background
+            // carries whether the thing is on or off, and overwriting it would
+            // make a selected lamp that is on look identical to one that is
+            // off. Selection is chrome; state is information.
+            var selected = (i === this.tileIndex);
+
             view.rect.backgroundColor(background);
-            view.rect.borderColor(i === this.tileIndex ? colours.select : 'clear');
+            view.rect.borderColor(selected ? colours.select : 'clear');
+            view.rect.borderWidth(selected ? SELECT_BORDER : 0);
             view.label.color(textColour);
             view.stateText.color(textColour);
-            view.stateText.text(stateLabel);
+            view.stateText.text(selected && stateLabel ? '▸ ' + stateLabel : stateLabel);
         }
     }
 

@@ -5,9 +5,14 @@ const Feature = require('platform/feature');
 
 const Constants = {
     // App versioning
-    appVersion: '2.2',
-    confVersion: '1.2',
-    configPageUrl: 'https://skylord123.github.io/pebble-home-assistant-ws/config/v1.2.html',
+    appVersion: '2.3',
+    confVersion: '2.2-icc',
+    // The fork's own settings page. Upstream's has no fields for
+    // dashboard_entity or the speech settings, and the app can point at only
+    // one config URL, so this is a copy of upstream's with those added.
+    // Regenerate with data/build_config_page.py, publish on the fork's
+    // github-pages branch.
+    configPageUrl: 'https://ironwillg-create.github.io/pebble-home-assistant-ws/config/v2.2-icc.html',
 
     // Debug settings
     debugMode: true,
