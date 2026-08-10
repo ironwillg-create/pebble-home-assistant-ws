@@ -62,5 +62,10 @@ enum Command {
   CommandCalculateTextSizeResponse,
   CommandTouchConfig,
   CommandTouchData,
+  CommandAudioBegin,
+  CommandAudioData,
+  CommandAudioStop,
+  CommandAudioAck,
+  CommandAudioState,
   NumCommands,
 };

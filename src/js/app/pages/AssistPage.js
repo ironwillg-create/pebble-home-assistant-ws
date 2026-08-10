@@ -600,6 +600,14 @@ class AssistPage extends BasePage {
                             var conversationId = data.conversation_id;
 
                             self.addMessage('Assistant', reply, null);
+
+                            // Read the answer aloud. Deliberately fired off the
+                            // reply TEXT rather than switching the pipeline to
+                            // end_stage "tts": HA's TTS returns an mp3 URL, and
+                            // neither the watch nor pkjs can decode mp3. Going
+                            // from text keeps one synthesis path, one cache and
+                            // one voice.
+                            require('app/SpeechService').speak(reply);
                             if (conversationId) {
                                 conversation_id = conversationId;
                             }

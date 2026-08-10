@@ -8,6 +8,7 @@ var Timeline = require('timeline');
 var Resource = require('ui/resource');
 var Accel = require('ui/accel');
 var Touch = require('ui/touch');
+var Audio = require('ui/audio');
 var Voice = require('ui/voice');
 var ImageService = require('ui/imageservice');
 var WindowStack = require('ui/windowstack');
@@ -569,6 +570,33 @@ var TouchDataPacket = new struct([
   ['int16', 'y'],
 ]);
 
+var AudioBeginPacket = new struct([
+  [Packet, 'packet'],
+  ['uint32', 'total'],
+  ['uint16', 'khz'],
+]);
+
+var AudioDataPacket = new struct([
+  [Packet, 'packet'],
+  ['uint16', 'length'],
+  ['data', 'data'],
+]);
+
+var AudioStopPacket = new struct([
+  [Packet, 'packet'],
+]);
+
+var AudioAckPacket = new struct([
+  [Packet, 'packet'],
+  ['uint32', 'consumed'],
+]);
+
+var AudioStatePacket = new struct([
+  [Packet, 'packet'],
+  ['uint8', 'state'],
+  ['uint8', 'error'],
+]);
+
 var MenuClearPacket = new struct([
   [Packet, 'packet'],
 ]);
@@ -837,6 +865,11 @@ var CommandPackets = [
   CalculateTextSizeResponsePacket,
   TouchConfigPacket,
   TouchDataPacket,
+  AudioBeginPacket,
+  AudioDataPacket,
+  AudioStopPacket,
+  AudioAckPacket,
+  AudioStatePacket,
 ];
 
 // Mirrors TouchEventType in the SDK. Position updates are only sent when a
@@ -845,6 +878,23 @@ var touchEventTypes = [
   'down',
   'up',
   'move',
+];
+
+// Mirror AudioEvent / AudioError in src/simply/simply_audio.c.
+var audioStates = [
+  'done',
+  'playing',
+  'error',
+];
+
+var audioErrors = [
+  null,
+  'memory',
+  'muted',
+  'busy',
+  'stalled',
+  'overrun',
+  'badLength',
 ];
 
 var accelAxes = [
@@ -1187,6 +1237,21 @@ SimplyPebble.accelConfig = function(def) {
 
 SimplyPebble.touchConfig = function(def) {
   SimplyPebble.sendPacket(TouchConfigPacket.prop(def));
+};
+
+SimplyPebble.audioBegin = function(total, khz) {
+  SimplyPebble.sendPacket(AudioBeginPacket.total(total).khz(khz));
+};
+
+SimplyPebble.audioData = function(bytes) {
+  // `length` must be written immediately before `data`: the struct library
+  // requires sequential access for dynamic fields and reads the preceding
+  // field to size them.
+  SimplyPebble.sendPacket(AudioDataPacket.length(bytes.length).data(bytes));
+};
+
+SimplyPebble.audioStop = function() {
+  SimplyPebble.sendPacket(AudioStopPacket);
 };
 
 SimplyPebble.voiceDictationStart = function(callback, enableConfirmation) {
@@ -1610,6 +1675,12 @@ SimplyPebble.onPacket = function(buffer, offset) {
       break;
     case TouchDataPacket:
       Touch.emitTouchData(touchEventTypes[packet.type()], packet.x(), packet.y());
+      break;
+    case AudioAckPacket:
+      Audio.onCredit(packet.consumed());
+      break;
+    case AudioStatePacket:
+      Audio.onState(audioStates[packet.state()], audioErrors[packet.error()]);
       break;
     case MenuGetSectionPacket:
       Menu.emitSection(packet.section());

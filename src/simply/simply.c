@@ -2,6 +2,7 @@
 
 #include "simply_accel.h"
 #include "simply_touch.h"
+#include "simply_audio.h"
 #include "simply_res.h"
 #include "simply_splash.h"
 #include "simply_stage.h"
@@ -18,6 +19,7 @@ Simply *simply_init(void) {
   Simply *simply = malloc(sizeof(*simply));
   simply->accel = simply_accel_create(simply);
   simply->touch = simply_touch_create(simply);
+  simply->audio = simply_audio_create(simply);
   simply->voice = simply_voice_create(simply);
   simply->res = simply_res_create(simply);
   simply->splash = simply_splash_create(simply);
@@ -44,6 +46,7 @@ void simply_deinit(Simply *simply) {
   simply_res_destroy(simply->res);
   simply_accel_destroy(simply->accel);
   simply_touch_destroy(simply->touch);
+  simply_audio_destroy(simply->audio);
   simply_voice_destroy(simply->voice);
   free(simply);
 }

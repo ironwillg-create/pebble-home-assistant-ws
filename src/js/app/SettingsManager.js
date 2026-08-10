@@ -26,6 +26,13 @@ var SettingsManager = {
         // more than one watch can have its own layout off one HA instance.
         appState.dashboard_entity = Settings.option('dashboard_entity') || 'sensor.pebble_dashboard';
 
+        // Spoken replies. The token is a setting rather than a compiled-in
+        // constant so it never lands in the source tree; with no token, replies
+        // stay silent and nothing else changes.
+        appState.speak_replies = Settings.option('speak_replies') === true;
+        appState.speech_url = Settings.option('speech_url') || 'https://voice.iccfloors.app';
+        appState.speech_token = Settings.option('speech_token') || null;
+
         // Voice settings
         appState.voice_enabled = Feature.microphone(true, false) && Settings.option('voice_enabled') !== false;
         appState.voice_confirm = Settings.option('voice_confirm');

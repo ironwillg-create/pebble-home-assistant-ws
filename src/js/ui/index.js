@@ -13,6 +13,7 @@ UI.TimeText = require('ui/timetext');
 UI.Image = require('ui/image');
 UI.Inverter = require('ui/inverter');
 UI.Touch = require('ui/touch');
+UI.Audio = require('ui/audio');
 UI.Vibe = require('ui/vibe');
 UI.Light = require('ui/light');
 

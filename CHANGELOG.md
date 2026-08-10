@@ -7,6 +7,39 @@ are documented here. Format follows [Keep a Changelog](https://keepachangelog.co
 Upstream releases are not repeated here; this file starts where the fork diverges
 (upstream 2.0).
 
+## [2.2.0] - 2026-08-10
+
+### Added
+
+- **Spoken replies.** Assistant answers are now read aloud through the watch
+  speaker (`src/simply/simply_audio.c`, `src/js/ui/audio.js`,
+  `src/js/app/SpeechService.js`). Off unless a speech token is configured.
+  - The C runtime gained a speaker subsystem: 4-bit IMA ADPCM decoded on the
+    watch and streamed into `speaker_stream_write()` through a ring buffer,
+    with credit-based flow control so the phone can never wrap the ring onto
+    audio that has not been played yet. Ported from the Craft Agents watchapp,
+    where the chain is hardware-proven.
+  - Two watchdogs, because the two failure modes look different: a speaker that
+    accepts nothing while reporting Idle has wedged, while one that claims to
+    be playing but never drains can only be caught by bounding playback against
+    the clip's known duration.
+  - The ring is `min(clip, 64 KB)` and steps down to 32 or 16 KB if the heap
+    cannot spare it, rather than refusing to speak.
+  - Speech comes from the voice-dispatch `/api/v2/watch/speak` endpoint, NOT
+    from Home Assistant's own TTS. HA's assist pipeline returns an mp3 URL and
+    neither pkjs nor the watch can decode mp3 or resample it; the voice-dispatch
+    endpoint already returns ADPCM at the exact rate the speaker wants,
+    loudness-processed for this speaker and cached by content. The pipeline
+    therefore stays at `end_stage: "intent"` and the reply TEXT is what gets
+    spoken.
+  - The bearer token is a setting (`speech_token`), never a compiled-in
+    constant, so it stays out of the source tree and out of git.
+
+### Notes
+
+- The emery emulator has no audio device. It exercises the whole chain but
+  cannot tell you whether the result is audible; that needs hardware.
+
 ## [2.1.0] - 2026-08-10
 
 ### Added
