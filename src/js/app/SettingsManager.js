@@ -22,6 +22,10 @@ var SettingsManager = {
         appState.ha_order_by = Settings.option('order_by') || 'attributes.friendly_name';
         appState.ha_order_dir = Settings.option('order_dir') || 'asc';
 
+        // Which HA entity carries the watch dashboard definition. Overridable so
+        // more than one watch can have its own layout off one HA instance.
+        appState.dashboard_entity = Settings.option('dashboard_entity') || 'sensor.pebble_dashboard';
+
         // Voice settings
         appState.voice_enabled = Feature.microphone(true, false) && Settings.option('voice_enabled') !== false;
         appState.voice_confirm = Settings.option('voice_confirm');

@@ -16,10 +16,12 @@ function getAreaMenuPage() { return require('app/pages/AreaMenuPage'); }
 function getLabelMenuPage() { return require('app/pages/LabelMenuPage'); }
 function getToDoListPage() { return require('app/pages/ToDoListPage'); }
 function getAssistPage() { return require('app/pages/AssistPage'); }
+function getDashboardPage() { return require('app/pages/DashboardPage'); }
 function getSettingsMenuPage() { return require('app/pages/SettingsMenuPage'); }
 
 // Default order for main menu items
 var DEFAULT_MAIN_MENU_ORDER = [
+    'dashboard',
     'assistant',
     'favorites',
     'areas',
@@ -35,6 +37,16 @@ class MainMenuPage extends BasePage {
         super();
         this.pinnedEntityIndexes = {};
         this.entityStates = {};
+    }
+
+    /**
+     * Whether Home Assistant is publishing a dashboard for the watch to render.
+     */
+    hasDashboard() {
+        var entityId = this.appState.dashboard_entity || 'sensor.pebble_dashboard';
+        var stateDict = this.appState.ha_state_dict || {};
+        var entity = stateDict[entityId];
+        return !!(entity && entity.attributes && entity.attributes.screens);
     }
 
     createMenu() {
@@ -216,6 +228,17 @@ class MainMenuPage extends BasePage {
 
         // Built-in menu items
         switch (itemId) {
+            case 'dashboard':
+                // Hidden entirely when there is no dashboard entity to show, so
+                // nobody gets a menu row that leads to an empty screen.
+                if (!this.hasDashboard()) return null;
+                return {
+                    id: 'dashboard',
+                    title: "Dashboard",
+                    on_click: function(e) {
+                        getDashboardPage().showDashboard();
+                    }
+                };
             case 'assistant':
                 if (!this.appState.voice_enabled) return null;
                 return {
