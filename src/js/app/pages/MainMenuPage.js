@@ -20,15 +20,15 @@ function getDashboardPage() { return require('app/pages/DashboardPage'); }
 function getSettingsMenuPage() { return require('app/pages/SettingsMenuPage'); }
 
 // Default order for main menu items
+// Pruned deliberately. Areas, Labels, People, To-Do Lists and All Entities are
+// a browser over a thousand-plus entities, which is a phone job; on a watch
+// they only crowd out the two things worth raising your wrist for. They are not
+// deleted - the `main_menu_order` setting can put any of them back - they are
+// just not what the app opens with.
 var DEFAULT_MAIN_MENU_ORDER = [
     'dashboard',
     'assistant',
     'favorites',
-    'areas',
-    'labels',
-    'todo_lists',
-    'people',
-    'all_entities',
     'settings'
 ];
 

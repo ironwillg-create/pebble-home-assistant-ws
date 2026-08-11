@@ -88,6 +88,8 @@ class DashboardPage extends BasePage {
         this.armed = null;
         this.armedTimer = null;
         this.headerText = null;
+        this.pickedDefault = false;
+        this.screensKey = null;
     }
 
     createMenu() {
@@ -156,6 +158,26 @@ class DashboardPage extends BasePage {
         }
 
         this.screens = screens;
+        // Remember what we rendered, so the subscription can tell a definition
+        // change from an ordinary state tick. Without this the first update
+        // after every load would look like a change and rebuild the screen.
+        this.screensKey = JSON.stringify(entity.attributes.screens);
+
+        // Home Assistant decides which screen matters right now. It can add or
+        // drop whole screens (a Print screen only while something is printing)
+        // and name the one to open on, so "what the watch shows first" is
+        // template logic in HA rather than something baked into the app.
+        //
+        // Only honoured on the first render: after that the cursor belongs to
+        // whoever is holding the watch, and yanking them to another screen
+        // mid-scroll because a sensor changed would be hostile.
+        if (!this.pickedDefault) {
+            this.pickedDefault = true;
+            var wanted = entity.attributes.default_screen;
+            var index = this.indexOfScreen(wanted);
+            if (index !== -1) { this.screenIndex = index; }
+        }
+
         if (this.screenIndex >= this.screens.length) {
             this.screenIndex = 0;
         }
@@ -200,6 +222,31 @@ class DashboardPage extends BasePage {
 
     currentScreen() {
         return this.screens[this.screenIndex];
+    }
+
+    /**
+     * Resolves a default_screen hint, which may be a title or a 0-based index.
+     * @returns {number} the screen index, or -1 if it does not match one.
+     */
+    indexOfScreen(wanted) {
+        if (wanted === undefined || wanted === null) { return -1; }
+
+        if (typeof wanted === 'number') {
+            return (wanted >= 0 && wanted < this.screens.length) ? wanted : -1;
+        }
+
+        var name = String(wanted).toLowerCase();
+        for (var i = 0; i < this.screens.length; ++i) {
+            if (String(this.screens[i].title || '').toLowerCase() === name) {
+                return i;
+            }
+        }
+        // A numeric string is a reasonable thing for a template to emit.
+        var asNumber = parseInt(wanted, 10);
+        if (!isNaN(asNumber) && asNumber >= 0 && asNumber < this.screens.length) {
+            return asNumber;
+        }
+        return -1;
     }
 
     /**
@@ -286,11 +333,22 @@ class DashboardPage extends BasePage {
             });
             wind.add(label);
 
+            // A value tile exists to be READ, so it inverts the usual
+            // hierarchy: the reading is the big text and the label shrinks to a
+            // caption above it. A toggle tile is the other way round, because
+            // there the thing you are aiming at is the name.
+            var isValue = (tiles[i].type === 'value');
+            if (isValue) {
+                label.font('gothic-14');
+                label.size(new Vector2(tileW - 6, 16));
+            }
+
             var stateText = new UI.Text({
-                position: new Vector2(x + 3, y + tileH - 20),
-                size: new Vector2(tileW - 6, 18),
+                position: isValue ? new Vector2(x + 3, y + 16)
+                                  : new Vector2(x + 3, y + tileH - 20),
+                size: new Vector2(tileW - 6, isValue ? tileH - 18 : 18),
                 text: '',
-                font: 'gothic-14',
+                font: isValue ? 'gothic-24-bold' : 'gothic-14',
                 color: colours.text,
                 textAlign: 'center',
             });
@@ -324,8 +382,25 @@ class DashboardPage extends BasePage {
                 var entity = stateDict[tile.entity];
                 var state = entity ? entity.state : 'unavailable';
                 stateLabel = state;
+
+                // A value tile can show an attribute instead of the state, so
+                // "time left" can come off a printer without needing a template
+                // sensor per field.
+                if (tile.attribute && entity && entity.attributes) {
+                    var attr = entity.attributes[tile.attribute];
+                    stateLabel = (attr === undefined || attr === null) ? '-' : String(attr);
+                }
+                if (tile.unit && !isUnavailable(state)) {
+                    stateLabel += tile.unit;
+                }
+
                 if (isUnavailable(state)) {
                     background = colours.tileUnavailable;
+                    stateLabel = tile.type === 'value' ? '-' : state;
+                } else if (tile.type === 'value') {
+                    // Readings are not "on"; colouring them green would imply a
+                    // state they do not have.
+                    background = colours.tile;
                 } else if (isOn(state)) {
                     background = colours.tileOn;
                     textColour = colours.textOn;
@@ -369,6 +444,15 @@ class DashboardPage extends BasePage {
                 ids.push(entity);
             }
         }
+
+        // Watch the dashboard entity itself as well, so screens that HA adds or
+        // drops (a Print screen appearing when a print starts) show up without
+        // anyone pressing refresh.
+        var dashboardId = this.appState.dashboard_entity || DEFAULT_DASHBOARD_ENTITY;
+        if (ids.indexOf(dashboardId) === -1) {
+            ids.push(dashboardId);
+        }
+
         if (!ids.length) {
             this.unsubscribe();
             return;
@@ -408,10 +492,35 @@ class DashboardPage extends BasePage {
                 }
             }
 
-            if (changed) {
-                self.refreshTiles();
+            if (!changed) { return; }
+
+            // If the screen DEFINITIONS changed, rebuild rather than just
+            // recolouring. Guarded by a content comparison because the
+            // dashboard entity also updates for unrelated reasons, and
+            // rebuilding on every tick would fight whoever is scrolling.
+            if (self.screensChanged()) {
+                self.loadScreens();
+                return;
             }
+
+            self.refreshTiles();
         });
+    }
+
+    /**
+     * @returns {boolean} whether HA is now publishing different screens than
+     *   the ones currently on display.
+     */
+    screensChanged() {
+        var dashboardId = this.appState.dashboard_entity || DEFAULT_DASHBOARD_ENTITY;
+        var stateDict = this.appState.ha_state_dict || {};
+        var entity = stateDict[dashboardId];
+        if (!entity || !entity.attributes) { return false; }
+
+        var key = JSON.stringify(entity.attributes.screens);
+        if (key === this.screensKey) { return false; }
+        this.screensKey = key;
+        return true;
     }
 
     /**
@@ -525,6 +634,13 @@ class DashboardPage extends BasePage {
         var view = this.tileViews[index];
         if (!view) { return; }
         var tile = view.tile;
+
+        // A value tile is a readout. Firing something because a finger landed
+        // on a number would be the worst kind of surprise, so it does nothing
+        // unless it was explicitly given an action.
+        if (tile.type === 'value' && !tile.action) {
+            return;
+        }
 
         if (tile.confirm && this.armed !== index) {
             this.disarm();

@@ -25,6 +25,9 @@ var SettingsManager = {
         // Which HA entity carries the watch dashboard definition. Overridable so
         // more than one watch can have its own layout off one HA instance.
         appState.dashboard_entity = Settings.option('dashboard_entity') || 'sensor.pebble_dashboard';
+        // Open straight onto the dashboard instead of the menu. Opt-out rather
+        // than opt-in, because the dashboard is the point of the app.
+        appState.open_dashboard = Settings.option('open_dashboard') !== false;
 
         // Spoken replies. The token is a setting rather than a compiled-in
         // constant so it never lands in the source tree; with no token, replies

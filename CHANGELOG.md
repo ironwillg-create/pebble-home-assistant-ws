@@ -7,6 +7,41 @@ are documented here. Format follows [Keep a Changelog](https://keepachangelog.co
 Upstream releases are not repeated here; this file starts where the fork diverges
 (upstream 2.0).
 
+## [2.4.0] - 2026-08-10
+
+### Added
+
+- **Value tiles** (`"type": "value"`) - a tile that shows a reading instead of
+  toggling something. The hierarchy inverts: the reading is the big text and the
+  label becomes a caption, because a value tile exists to be read rather than
+  aimed at. Tapping one does nothing unless it was also given an `action`;
+  firing something because a finger landed on a number is the worst kind of
+  surprise. Can show an `attribute` instead of the state, with an optional
+  `unit`.
+- **Home Assistant decides which screens exist and which one opens first.**
+  A `default_screen` attribute (title or index) selects the opening screen, and
+  because the screens come from a template, HA can add and drop whole screens
+  with the state of the house: a Print screen only while something is printing,
+  a Door screen when someone is at the door, an Away screen when nobody is home.
+  No rebuild for any of it.
+  - `default_screen` is honoured only on the first render. After that the cursor
+    belongs to whoever is holding the watch; yanking them to another screen
+    mid-scroll because a sensor changed would be hostile.
+  - The dashboard entity is now part of the live subscription, so screens
+    appearing or disappearing show up without pressing refresh. Guarded by a
+    content comparison so ordinary state ticks do not rebuild the screen.
+
+### Changed
+
+- **The app opens on the dashboard, not the main menu.** Pushed on top of the
+  menu rather than instead of it, so BACK still reaches the menu instead of
+  quitting.
+- **The main menu is pruned to Dashboard, Assistant, Favorites, Settings.**
+  Areas, Labels, People, To-Do Lists and All Entities are a browser over 1,100+
+  entities, which is a phone job; on a wrist they only crowd out the two things
+  worth raising it for. Not deleted - the `main_menu_order` setting puts any of
+  them back.
+
 ## [2.3.0] - 2026-08-10
 
 ### Added

@@ -5,7 +5,7 @@ const Feature = require('platform/feature');
 
 const Constants = {
     // App versioning
-    appVersion: '2.3',
+    appVersion: '2.4',
     confVersion: '2.2-icc',
     // The fork's own settings page. Upstream's has no fields for
     // dashboard_entity or the speech settings, and the app can point at only
@@ -55,15 +55,11 @@ const Constants = {
     },
 
     // Default main menu order
+    // Kept in step with DEFAULT_MAIN_MENU_ORDER in pages/MainMenuPage.js.
     DEFAULT_MAIN_MENU_ORDER: [
         'dashboard',
         'assistant',
         'favorites',
-        'areas',
-        'labels',
-        'todo_lists',
-        'people',
-        'all_entities',
         'settings'
     ]
 };

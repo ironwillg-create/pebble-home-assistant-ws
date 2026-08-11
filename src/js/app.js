@@ -26,6 +26,7 @@ var EntityService = require('app/EntityService');
 
 // === Page Imports ===
 var MainMenuPage = require('app/pages/MainMenuPage');
+var DashboardPage = require('app/pages/DashboardPage');
 var FavoritesPage = require('app/pages/FavoritesPage');
 var AreaMenuPage = require('app/pages/AreaMenuPage');
 var LabelMenuPage = require('app/pages/LabelMenuPage');
@@ -91,6 +92,15 @@ function on_auth_ok(evt) {
 
         if (!skipMainMenu) {
             MainMenuPage.showMainMenu();
+
+            // Land on the dashboard rather than a menu. The dashboard IS the
+            // reason to raise your wrist; the menu is a browser for a thousand
+            // entities and is a phone job. Pushed ON TOP of the main menu
+            // rather than instead of it, so BACK still goes to the menu instead
+            // of quitting the app.
+            if (appState.open_dashboard !== false && hasDashboard()) {
+                DashboardPage.showDashboard();
+            }
         }
         loadingCard.hide();
 
@@ -126,6 +136,12 @@ function on_auth_ok(evt) {
                     break;
             }
         }
+    }
+
+    function hasDashboard() {
+        var entityId = appState.dashboard_entity || 'sensor.pebble_dashboard';
+        var entity = (appState.ha_state_dict || {})[entityId];
+        return !!(entity && entity.attributes && entity.attributes.screens);
     }
 
     function showUIAfterAuth() {
