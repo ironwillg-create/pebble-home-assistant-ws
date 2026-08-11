@@ -1,0 +1,263 @@
+# /config/packages/pebble_dashboard.yaml
+#
+# Screens for the Pebble Home Assistant WS watchapp (ICC fork).
+#
+# The watch renders whatever `screens` contains, so the layout is HA template
+# logic rather than something baked into the app: no rebuild, no sideload.
+# Screens can also come and go with the state of the house, and `default_screen`
+# names the one the watch opens on.
+#
+# WHAT EARNS A TILE HERE
+#   Only things HA knows that are not already on your wrist or phone. Weather,
+#   phone battery and the time are published elsewhere and were removed; a tile
+#   that repeats them costs a slot and teaches you to ignore the screen.
+#   What is left is either an exception you would want to catch (oven left on,
+#   fridge door open, an ICC service down) or a control you actually press.
+#
+# Tile keys:
+#   label      (required) text on the tile
+#   entity     optional; shows live state and colours from it
+#   type       optional; "value" = a readout, big text, inert when tapped
+#   attribute  optional; with type "value", show this attribute not the state
+#   map        optional; {raw_state: "Display"} overrides the built-in wording
+#   alert      optional; with type "value", this state paints the tile red
+#   unit       optional; appended to the displayed value
+#   action     optional; "toggle" (default with an entity), "domain.service",
+#              or "app.*" to drive the watchapp itself
+#   target     optional; passed to the service call
+#   confirm    optional; true = arm on first press, fire on the second
+#
+# layout is "COLSxROWS". Tiles beyond cols*rows are ignored.
+#
+# LABEL LENGTH: a 3-column status tile is about 62 px wide and fits roughly six
+# characters at gothic-14. Longer labels wrap and the second line is clipped, so
+# keep dense-grid labels short rather than relying on it fitting.
+
+template:
+  - sensor:
+      # How many monitored services are not "up" right now, across the whole
+      # estate rather than just ICC. A count is the only thing that fits a
+      # tile; the Services screens colour the individual ones, and the
+      # attribute names them for the detail page.
+      - name: Services Down
+        unique_id: pebble_services_down
+        icon: mdi:server-network-off
+        state: >
+          {{ states.sensor
+             | selectattr('entity_id', 'search', '_status$')
+             | rejectattr('entity_id', 'search', 'monitor_type')
+             | selectattr('state', 'in', ['down'])
+             | list | count }}
+        attributes:
+          names: >
+            {{ states.sensor
+               | selectattr('entity_id', 'search', '_status$')
+               | rejectattr('entity_id', 'search', 'monitor_type')
+               | selectattr('state', 'in', ['down'])
+               | map(attribute='name') | list | join(', ') }}
+
+      - name: Pebble Dashboard
+        unique_id: pebble_dashboard
+        icon: mdi:watch
+        state: >
+          {{ states('sensor.adventurer_5m_current_print_state') | default('idle', true) }}
+        attributes:
+          default_screen: >
+            {% if states('sensor.adventurer_5m_current_print_state') in ['printing', 'paused'] %}
+              Print
+            {% elif is_state('binary_sensor.worthington_doorbell_ringing', 'on')
+                 or is_state('binary_sensor.worthington_doorbell_person_detected', 'on')
+                 or is_state('binary_sensor.worthington_doorbell_package_delivered', 'on') %}
+              Door
+            {% elif states('sensor.services_down') | int(0) > 0
+                 or is_state('binary_sensor.kitchen_refrigerator_fridge_door', 'on')
+                 or is_state('binary_sensor.kitchen_refrigerator_freezer_door', 'on')
+                 or is_state('sensor.kitchen_range_machine_state', 'run')
+                 or is_state('sensor.car_battery_status', 'low')
+                 or is_state('binary_sensor.car_check_engine', 'on') %}
+              Alerts
+            {% elif not is_state('person.will_garza', 'home') %}
+              Away
+            {% else %}
+              Home
+            {% endif %}
+
+          screens: >
+            {% set printing = states('sensor.adventurer_5m_current_print_state') in ['printing', 'paused'] %}
+            {% set at_door = is_state('binary_sensor.worthington_doorbell_ringing', 'on')
+                          or is_state('binary_sensor.worthington_doorbell_person_detected', 'on')
+                          or is_state('binary_sensor.worthington_doorbell_package_delivered', 'on') %}
+
+            {# Home: the exceptions worth catching, none of them published
+               anywhere else on your wrist. #}
+            {% set home = {
+              "title": "Home",
+              "layout": "2x3",
+              "tiles": [
+                {"label": "Alarm",  "entity": "alarm_control_panel.t802351025202f20", "type": "value"},
+                {"label": "Oven",   "entity": "sensor.kitchen_range_machine_state", "type": "value",
+                 "map": {"ready": "Off", "run": "ON", "preheat": "Heat"}, "alert": "run"},
+                {"label": "Fridge", "entity": "binary_sensor.kitchen_refrigerator_fridge_door", "type": "value",
+                 "map": {"on": "OPEN", "off": "Shut"}, "alert": "on"},
+                {"label": "Freezer","entity": "binary_sensor.kitchen_refrigerator_freezer_door", "type": "value",
+                 "map": {"on": "OPEN", "off": "Shut"}, "alert": "on"},
+                {"label": "Vacuum", "entity": "sensor.roborock_s7_status", "type": "value"},
+                {"label": "Down",   "entity": "sensor.services_down", "type": "value",
+                 "map": {"0": "None"}, "alert": "1", "action": "app.entity"}
+              ]
+            } %}
+
+            {% set lights = {
+              "title": "Lights",
+              "layout": "2x3",
+              "tiles": [
+                {"label": "MBR Ceiling", "entity": "light.wall_dimmer_switch"},
+                {"label": "Salt Lamp",   "entity": "light.master_bedroom_bedroom_ealt_lamp"},
+                {"label": "Dome Lamp",   "entity": "light.living_room_dome_lamp"},
+                {"label": "Cone Lamp",   "entity": "light.h14c1_2"},
+                {"label": "Bankers",     "entity": "light.living_room_banker_s_lamp"},
+                {"label": "Range",       "entity": "light.kitchen_range_light"}
+              ]
+            } %}
+
+            {% set scenes = {
+              "title": "Scenes",
+              "layout": "2x3",
+              "tiles": [
+                {"label": "Goodnight",  "action": "script.mbr_goodnight"},
+                {"label": "Morning",    "action": "script.good_morning"},
+                {"label": "Movie",      "action": "script.movie_time"},
+                {"label": "Reading",    "action": "script.mbr_reading"},
+                {"label": "Fire",       "action": "script.bedside_fire"},
+                {"label": "Find Phone", "action": "script.find_my_phone"}
+              ]
+            } %}
+
+            {% set house = {
+              "title": "House",
+              "layout": "2x3",
+              "tiles": [
+                {"label": "MBR Blinds",  "entity": "cover.master_bedroom_blinds"},
+                {"label": "LR Blinds",   "entity": "cover.living_room_blinds"},
+                {"label": "Kit Blinds",  "entity": "cover.kitchen_blinds"},
+                {"label": "Vac Start",   "entity": "vacuum.roborock_s7", "action": "vacuum.start"},
+                {"label": "Vac Dock",    "entity": "vacuum.roborock_s7", "action": "vacuum.return_to_base"},
+                {"label": "Guest WiFi",  "entity": "switch.worthington_gardens_eero_guest_network", "confirm": true}
+              ]
+            } %}
+
+            {# Services: the colour IS the reading, so a whole estate fits on
+               two screens instead of one service per tile. Selecting a tile
+               opens its detail page. Uptime lives in Kuma and the systems
+               dashboard, but neither is on your wrist, and "is anything down"
+               is exactly the question you want answered without a laptop. #}
+
+
+            {# The car only surfaces two things worth knowing, so it shares a
+               screen rather than owning one. #}
+
+            {% set print = {
+              "title": "Print",
+              "layout": "2x3",
+              "tiles": [
+                {"label": "Left",  "entity": "sensor.adventurer_5m_print_time_left", "type": "value"},
+                {"label": "ETA",   "entity": "sensor.adventurer_5m_print_eta",       "type": "value"},
+                {"label": "State", "entity": "sensor.adventurer_5m_current_print_state", "type": "value"},
+                {"label": "File",  "entity": "sensor.adventurer_5m_filename", "type": "value"},
+                {"label": "Pause", "action": "button.press",
+                 "target": {"entity_id": "button.adventurer_5m_pause_print"}},
+                {"label": "Cancel", "action": "button.press",
+                 "target": {"entity_id": "button.adventurer_5m_cancel_print"},
+                 "confirm": true}
+              ]
+            } %}
+
+            {% set door = {
+              "title": "Door",
+              "layout": "2x2",
+              "tiles": [
+                {"label": "Person",  "entity": "binary_sensor.worthington_doorbell_person_detected",
+                 "type": "value", "map": {"on": "YES", "off": "No"}, "alert": "on"},
+                {"label": "Ringing", "entity": "binary_sensor.worthington_doorbell_ringing",
+                 "type": "value", "map": {"on": "YES", "off": "No"}, "alert": "on"},
+                {"label": "Package", "entity": "binary_sensor.worthington_doorbell_package_delivered",
+                 "type": "value", "map": {"on": "YES", "off": "No"}, "alert": "on"},
+                {"label": "Alarm",   "entity": "alarm_control_panel.t802351025202f20", "type": "value"}
+              ]
+            } %}
+
+            {% set away = {
+              "title": "Away",
+              "layout": "2x2",
+              "tiles": [
+                {"label": "Goodnight", "action": "script.mbr_goodnight"},
+                {"label": "Alarm",     "entity": "alarm_control_panel.t802351025202f20", "type": "value"},
+                {"label": "Oven",      "entity": "sensor.kitchen_range_machine_state", "type": "value",
+                 "map": {"ready": "Off", "run": "ON"}, "alert": "run"},
+                {"label": "Down",      "entity": "sensor.services_down", "type": "value",
+                 "map": {"0": "None"}, "alert": "1", "action": "app.entity"}
+              ]
+            } %}
+
+            {% set more = {
+              "title": "More",
+              "layout": "2x2",
+              "tiles": [
+                {"label": "Assist",   "action": "app.assist"},
+                {"label": "Refresh",  "action": "app.refresh"},
+                {"label": "Browse",   "action": "app.menu"},
+                {"label": "Settings", "action": "app.settings"}
+              ]
+            } %}
+
+            {# Alerts: built from whatever is actually wrong right now, and it
+               does not exist at all when nothing is.
+
+               This replaced two screens that listed all 30 monitored services.
+               An inventory of green tiles is something you learn to stop
+               reading, and it buries the one red tile that mattered. Naming a
+               thing only when it needs you is the whole point of a wrist. #}
+            {% set ns2 = namespace(alerts=[]) %}
+
+            {% for s in states.sensor
+               if s.entity_id.endswith('_status')
+               and 'monitor_type' not in s.entity_id
+               and s.state == 'down' %}
+              {% set ns2.alerts = ns2.alerts + [{
+                "label": (s.name | replace('ICC ', '') | replace(' Status', ''))[:12],
+                "entity": s.entity_id, "type": "status"}] %}
+            {% endfor %}
+
+            {% set checks = [
+              ('binary_sensor.kitchen_refrigerator_fridge_door',  'on',  'Fridge'),
+              ('binary_sensor.kitchen_refrigerator_freezer_door', 'on',  'Freezer'),
+              ('sensor.kitchen_range_machine_state',              'run', 'Oven'),
+              ('sensor.car_battery_status',                       'low', 'Car Bat'),
+              ('binary_sensor.car_check_engine',                  'on',  'Engine'),
+              ('binary_sensor.roborock_s7_water_shortage',        'on',  'Vac H2O'),
+              ('binary_sensor.kitchen_refrigerator_filter_status','on',  'Filter')
+            ] %}
+            {% for entity, bad, label in checks %}
+              {% if states(entity) == bad %}
+                {% set ns2.alerts = ns2.alerts + [{
+                  "label": label, "entity": entity, "type": "status", "ok": "__never__"}] %}
+              {% endif %}
+            {% endfor %}
+
+            {% set alerts = {
+              "title": "Alerts",
+              "layout": "2x3",
+              "tiles": ns2.alerts[:6]
+            } %}
+
+            {# Conditional screens come FIRST so the thing that matters right now
+               is one swipe away, not five. #}
+            {% set ns = namespace(screens=[]) %}
+            {% if printing %}{% set ns.screens = ns.screens + [print] %}{% endif %}
+            {% if at_door %}{% set ns.screens = ns.screens + [door] %}{% endif %}
+            {% if ns2.alerts | count > 0 %}{% set ns.screens = ns.screens + [alerts] %}{% endif %}
+            {% if not is_state('person.will_garza', 'home') %}
+              {% set ns.screens = ns.screens + [away] %}
+            {% endif %}
+            {% set ns.screens = ns.screens + [home, lights, scenes, house, more] %}
+            {{ ns.screens }}

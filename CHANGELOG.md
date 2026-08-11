@@ -7,6 +7,24 @@ are documented here. Format follows [Keep a Changelog](https://keepachangelog.co
 Upstream releases are not repeated here; this file starts where the fork diverges
 (upstream 2.0).
 
+## [2.7.1] - 2026-08-10
+
+### Changed
+
+- **The two service screens became one Alerts screen that only exists when
+  something is wrong.** Listing all 30 monitored services was an inventory, and
+  an inventory of green tiles is something you learn to stop reading - it buries
+  the one red tile that mattered. Home Assistant now builds the screen from
+  whatever is actually failing (any monitor `down`, plus fridge/freezer door,
+  oven left on, car battery, check engine, vacuum water, fridge filter), it
+  becomes the opening screen when it exists, and it disappears entirely when
+  nothing is wrong. Naming a thing only when it needs you is the point of a
+  wrist.
+- The `Car` screen went the same way; its entities are alert conditions now
+  rather than a standing screen.
+- The HA package and the config-page generator are vendored under `examples/`,
+  since neither is reconstructable from the app source alone.
+
 ## [2.7.0] - 2026-08-10
 
 ### Added
