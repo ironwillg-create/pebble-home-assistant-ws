@@ -5,7 +5,7 @@ const Feature = require('platform/feature');
 
 const Constants = {
     // App versioning
-    appVersion: '2.4',
+    appVersion: '2.5',
     confVersion: '2.2-icc',
     // The fork's own settings page. Upstream's has no fields for
     // dashboard_entity or the speech settings, and the app can point at only

@@ -39,12 +39,21 @@ var BasePage = require('app/pages/BasePage');
 
 var DEFAULT_DASHBOARD_ENTITY = 'sensor.pebble_dashboard';
 
-var HEADER_H = 22;
-var GAP = 3;
+var HEADER_H = 24;
+var GAP = 4;
 
 // Thick enough to read at arm's length without shrinking the tile's usable
 // area; 2 px was reported as too subtle to find the cursor.
 var SELECT_BORDER = 4;
+
+// Rounded tiles. The C renderer fills rects with graphics_fill_rect(radius,
+// GCornersAll), so this costs nothing extra to draw.
+var TILE_RADIUS = 6;
+
+// Screen position is shown as dots rather than "2/5": at this size a reader
+// takes in "which of these am I on" faster than they parse a fraction.
+var DOT_R = 3;
+var DOT_GAP = 9;
 
 // How long an armed confirm tile stays armed before it forgets. Long enough to
 // press twice deliberately, short enough that a pocket press later does nothing.
@@ -52,14 +61,20 @@ var CONFIRM_MS = 4000;
 
 var colours = {
   bg: 'black',
-  header: Constants.colour.highlight,
-  headerText: Constants.colour.highlight_text,
-  tile: Feature.color('#555555', 'black'),
-  tileOn: Feature.color('#00AA00', 'white'),
-  tileUnavailable: Feature.color('#AA0000', 'black'),
-  tileArmed: Feature.color('#FFAA00', 'white'),
+  // A dark header instead of the old bright blue bar: the tiles are the
+  // content, and a saturated strip across the top pulled the eye away from
+  // them and clashed with the green "on" state.
+  header: Feature.color('#2A2A2A', 'black'),
+  headerText: Feature.color('white', 'white'),
+  headerAccent: Feature.color('#00AAFF', 'white'),
+  tile: Feature.color('#3B3B3B', 'black'),
+  tileOn: Feature.color('#00A852', 'white'),
+  tileUnavailable: Feature.color('#7A2020', 'black'),
+  tileArmed: Feature.color('#FF8800', 'white'),
+  error: Feature.color('#C0392B', 'black'),
   text: Feature.color('white', 'white'),
   textOn: Feature.color('white', 'black'),
+  textMuted: Feature.color('#B0B0B0', 'white'),
   // White reads against every tile state (grey off, green on, red
   // unavailable, amber armed); the old blue vanished against the header and
   // was low-contrast on green.
@@ -90,6 +105,7 @@ class DashboardPage extends BasePage {
         this.headerText = null;
         this.pickedDefault = false;
         this.screensKey = null;
+        this.flashTimer = null;
     }
 
     createMenu() {
@@ -127,6 +143,10 @@ class DashboardPage extends BasePage {
     onHide() {
         this.disarm();
         this.unsubscribe();
+        if (this.flashTimer) {
+            clearTimeout(this.flashTimer);
+            this.flashTimer = null;
+        }
     }
 
     /**
@@ -282,27 +302,41 @@ class DashboardPage extends BasePage {
             this.tileIndex = 0;
         }
 
-        // Header: screen title on the left, page position on the right so it is
-        // obvious there are more screens to swipe to.
-        var heading = screen.title || 'Dashboard';
-        if (this.screens.length > 1) {
-            heading += '  ' + (this.screenIndex + 1) + '/' + this.screens.length;
-        }
+        // Header: title on the left, one dot per screen on the right. Dots beat
+        // "2/5" here - at a glance you read position from the filled dot
+        // without parsing a fraction - and they also advertise that there ARE
+        // other screens, which a number does less well.
         var headerBg = new UI.Rect({
             position: new Vector2(0, 0),
             size: new Vector2(size.x, HEADER_H),
             backgroundColor: colours.header,
         });
         wind.add(headerBg);
+
+        var dotsWidth = (this.screens.length > 1)
+            ? this.screens.length * DOT_GAP + 4 : 0;
+
         this.headerText = new UI.Text({
-            position: new Vector2(4, 1),
-            size: new Vector2(size.x - 8, HEADER_H),
-            text: heading,
+            position: new Vector2(6, 2),
+            size: new Vector2(size.x - 12 - dotsWidth, HEADER_H),
+            text: screen.title || 'Dashboard',
             font: 'gothic-18-bold',
             color: colours.headerText,
             textAlign: 'left',
         });
         wind.add(this.headerText);
+
+        if (this.screens.length > 1) {
+            var dotsX = size.x - dotsWidth;
+            for (var d = 0; d < this.screens.length; ++d) {
+                var isHere = (d === this.screenIndex);
+                wind.add(new UI.Circle({
+                    position: new Vector2(dotsX + d * DOT_GAP + DOT_R, HEADER_H / 2),
+                    radius: isHere ? DOT_R : DOT_R - 1,
+                    backgroundColor: isHere ? colours.headerAccent : colours.textMuted,
+                }));
+            }
+        }
 
         var gridH = size.y - HEADER_H;
         var tileW = Math.floor((size.x - GAP * (grid.cols + 1)) / grid.cols);
@@ -320,12 +354,16 @@ class DashboardPage extends BasePage {
                 backgroundColor: colours.tile,
                 borderColor: 'clear',
                 borderWidth: 0,
+                // Set at construction because Rect exposes no radius accessor;
+                // tiles are rebuilt on every render, so nothing needs to change
+                // it in place.
+                radius: TILE_RADIUS,
             });
             wind.add(rect);
 
             var label = new UI.Text({
-                position: new Vector2(x + 3, y + 2),
-                size: new Vector2(tileW - 6, tileH - 4),
+                position: new Vector2(x + 4, y + 4),
+                size: new Vector2(tileW - 8, tileH - 8),
                 text: tiles[i].label || tiles[i].entity || '?',
                 font: 'gothic-18-bold',
                 color: colours.text,
@@ -703,9 +741,45 @@ class DashboardPage extends BasePage {
         return { domain: domain, service: 'toggle', data: data, target: target };
     }
 
+    /**
+     * Replaces the header text for a few seconds. A failed service call used to
+     * be a double buzz and a log line nobody can read on a wrist, which is
+     * indistinguishable from "the button does nothing".
+     */
+    flash(message, isError) {
+        var self = this;
+        if (!this.headerText) { return; }
+
+        if (this.flashTimer) {
+            clearTimeout(this.flashTimer);
+            this.flashTimer = null;
+        }
+
+        this.headerText.text(message);
+        this.headerText.color(isError ? colours.error : colours.headerAccent);
+
+        this.flashTimer = setTimeout(function() {
+            self.flashTimer = null;
+            if (!self.headerText) { return; }
+            var screen = self.currentScreen();
+            self.headerText.text(screen ? (screen.title || 'Dashboard') : 'Dashboard');
+            self.headerText.color(colours.headerText);
+        }, 3000);
+    }
+
     fire(tile) {
+        var self = this;
+
+        // Tiles can drive the APP as well as the house. That is what lets the
+        // navigation itself be defined in Home Assistant rather than hardcoded
+        // here, so a nav screen is just another screen.
+        if (tile.action && tile.action.indexOf('app.') === 0) {
+            return this.appAction(tile.action.slice(4));
+        }
+
         var call = this.resolveCall(tile);
         if (!call) {
+            this.flash('No action for this tile', true);
             Vibe.vibrate('double');
             return;
         }
@@ -719,12 +793,42 @@ class DashboardPage extends BasePage {
             call.target,
             function(data) {
                 Vibe.vibrate('short');
+                self.flash(tile.label || 'Sent', false);
             },
             function(error) {
                 helpers.log_message('Dashboard: service call failed: ' + JSON.stringify(error));
                 Vibe.vibrate('double');
+                // Home Assistant's own message is far more useful than "it
+                // failed" - it names the unsupported service or bad entity.
+                var reason = (error && (error.message || error.code)) || 'failed';
+                self.flash(String(reason).substring(0, 40), true);
             }
         );
+    }
+
+    /**
+     * App-level tile actions, addressed as "app.<name>" from the HA config.
+     */
+    appAction(name) {
+        switch (name) {
+            case 'assist':
+                Vibe.vibrate('short');
+                return require('app/pages/AssistPage').showAssistMenu();
+            case 'menu':
+                Vibe.vibrate('short');
+                return require('app/pages/MainMenuPage').showMainMenu();
+            case 'favorites':
+                Vibe.vibrate('short');
+                return require('app/pages/FavoritesPage').showFavorites();
+            case 'settings':
+                Vibe.vibrate('short');
+                return require('app/pages/SettingsMenuPage').showSettingsMenu();
+            case 'refresh':
+                return this.reload();
+            default:
+                this.flash('Unknown app action: ' + name, true);
+                Vibe.vibrate('double');
+        }
     }
 }
 

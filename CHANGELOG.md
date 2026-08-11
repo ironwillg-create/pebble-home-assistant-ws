@@ -7,6 +7,30 @@ are documented here. Format follows [Keep a Changelog](https://keepachangelog.co
 Upstream releases are not repeated here; this file starts where the fork diverges
 (upstream 2.0).
 
+## [2.5.0] - 2026-08-10
+
+### Added
+
+- **`app.*` tile actions** - a tile can drive the watchapp rather than Home
+  Assistant: `app.assist`, `app.menu`, `app.favorites`, `app.settings`,
+  `app.refresh`. This is what lets the app's own navigation be defined in HA
+  like everything else, so a nav screen is just another screen.
+- **On-screen feedback for every action.** The header briefly shows the tile
+  name on success and Home Assistant's own error message on failure. A failed
+  service call used to be a double buzz and a log line nobody can read on a
+  wrist, which is indistinguishable from "the button does nothing".
+
+### Changed
+
+- **The dashboard is the app.** When a dashboard exists the upstream main menu
+  is no longer pushed at all, so BACK exits rather than dropping into an entity
+  browser. Everything it offered is still reachable through an `app.*` tile.
+- **Visual pass**: rounded tiles; a dark header instead of the saturated blue
+  bar, which was pulling the eye off the content and clashing with the green
+  "on" state; screen position shown as dots rather than "2/5", which reads
+  faster and advertises that other screens exist; softer green/red/amber states;
+  more breathing room inside tiles.
+
 ## [2.4.0] - 2026-08-10
 
 ### Added

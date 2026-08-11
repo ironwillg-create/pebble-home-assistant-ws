@@ -91,15 +91,16 @@ function on_auth_ok(evt) {
             appState.quick_launch_exit_on_back;
 
         if (!skipMainMenu) {
-            MainMenuPage.showMainMenu();
-
-            // Land on the dashboard rather than a menu. The dashboard IS the
-            // reason to raise your wrist; the menu is a browser for a thousand
-            // entities and is a phone job. Pushed ON TOP of the main menu
-            // rather than instead of it, so BACK still goes to the menu instead
-            // of quitting the app.
+            // The dashboard is the app now, not a page inside it. When one
+            // exists, the upstream main menu is not pushed at all: it is a
+            // browser over 1,100+ entities, and every screen it offers is
+            // reachable from a tile via an "app.*" action if it is actually
+            // wanted. That also means BACK from the dashboard exits, which is
+            // what you want from a thing you raised your wrist to use.
             if (appState.open_dashboard !== false && hasDashboard()) {
                 DashboardPage.showDashboard();
+            } else {
+                MainMenuPage.showMainMenu();
             }
         }
         loadingCard.hide();
