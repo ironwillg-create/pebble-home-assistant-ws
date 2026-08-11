@@ -436,9 +436,18 @@ class DashboardPage extends BasePage {
             // caption above it. A toggle tile is the other way round, because
             // there the thing you are aiming at is the name.
             var isValue = (tiles[i].type === 'value');
+            var isStatus = (tiles[i].type === 'status');
+
             if (isValue) {
                 label.font('gothic-14');
                 label.size(new Vector2(tileW - 6, 16));
+            } else if (isStatus) {
+                // A status tile carries no text but its name: the colour IS the
+                // reading. That is what lets 15 services fit on one screen,
+                // where a name-plus-value tile fits six.
+                label.font(tileH < 34 ? 'gothic-14' : 'gothic-18-bold');
+                label.position(new Vector2(x + 2, y + (tileH - 20) / 2));
+                label.size(new Vector2(tileW - 4, 22));
             }
 
             var stateText = new UI.Text({
@@ -494,7 +503,22 @@ class DashboardPage extends BasePage {
                     stateLabel += tile.unit;
                 }
 
-                if (isUnavailable(state)) {
+                if (tile.type === 'status') {
+                    // Green means healthy, red means not, grey means the
+                    // monitor itself has nothing to say. `ok` names the healthy
+                    // state; it defaults to the ones that already mean healthy.
+                    var okStates = tile.ok ? [String(tile.ok)] : ['up', 'on', 'ok', 'home', 'online'];
+                    if (isUnavailable(state)) {
+                        background = colours.tile;
+                        textColour = colours.textMuted;
+                    } else if (okStates.indexOf(String(state).toLowerCase()) !== -1) {
+                        background = colours.tileOn;
+                        textColour = colours.textOn;
+                    } else {
+                        background = colours.tileUnavailable;
+                    }
+                    stateLabel = '';
+                } else if (isUnavailable(state)) {
                     background = colours.tileUnavailable;
                 } else if (tile.type === 'value') {
                     // Readings are not "on"; colouring them green would imply a
@@ -759,6 +783,15 @@ class DashboardPage extends BasePage {
             return;
         }
 
+        // A status tile is a summary, so selecting it drills in rather than
+        // doing anything: the colour tells you something is wrong, and the
+        // detail page tells you what. Safe as a default because opening a
+        // read-only page cannot change anything.
+        if (tile.type === 'status' && !tile.action && tile.entity) {
+            Vibe.vibrate('short');
+            return require('app/EntityService').show(tile.entity);
+        }
+
         if (tile.confirm && this.armed !== index) {
             this.disarm();
             this.armed = index;
@@ -853,7 +886,7 @@ class DashboardPage extends BasePage {
         // navigation itself be defined in Home Assistant rather than hardcoded
         // here, so a nav screen is just another screen.
         if (tile.action && tile.action.indexOf('app.') === 0) {
-            return this.appAction(tile.action.slice(4));
+            return this.appAction(tile.action.slice(4), tile);
         }
 
         var call = this.resolveCall(tile);
@@ -888,7 +921,7 @@ class DashboardPage extends BasePage {
     /**
      * App-level tile actions, addressed as "app.<name>" from the HA config.
      */
-    appAction(name) {
+    appAction(name, tile) {
         switch (name) {
             case 'assist':
                 Vibe.vibrate('short');
@@ -904,6 +937,16 @@ class DashboardPage extends BasePage {
                 return require('app/pages/SettingsMenuPage').showSettingsMenu();
             case 'refresh':
                 return this.reload();
+            case 'entity':
+                // "app.entity" opens the stock detail page for the tile's
+                // entity, which is the one part of the original app worth
+                // keeping: it already renders history and attributes.
+                if (tile && tile.entity) {
+                    Vibe.vibrate('short');
+                    return require('app/EntityService').show(tile.entity);
+                }
+                this.flash('No entity on this tile', true);
+                return;
             default:
                 this.flash('Unknown app action: ' + name, true);
                 Vibe.vibrate('double');

@@ -7,6 +7,20 @@ are documented here. Format follows [Keep a Changelog](https://keepachangelog.co
 Upstream releases are not repeated here; this file starts where the fork diverges
 (upstream 2.0).
 
+## [2.7.0] - 2026-08-10
+
+### Added
+
+- **Status tiles** (`"type": "status"`) - the colour IS the reading. No value
+  text, just a name on green or red, which is what lets fifteen services fit on
+  one screen where a name-plus-value tile fits six. `ok` names the healthy
+  state; it defaults to up/on/ok/home/online. An unavailable monitor goes grey
+  rather than red, because "no data" is not the same as "down".
+- **Selecting a status tile opens its detail page**, reusing the stock entity
+  page rather than reinventing it. Safe as a default because opening a
+  read-only page cannot change anything. `app.entity` does the same explicitly
+  for any tile.
+
 ## [2.6.0] - 2026-08-10
 
 ### Fixed
