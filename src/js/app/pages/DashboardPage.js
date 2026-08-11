@@ -64,21 +64,24 @@ var colours = {
   // A dark header instead of the old bright blue bar: the tiles are the
   // content, and a saturated strip across the top pulled the eye away from
   // them and clashed with the green "on" state.
-  header: Feature.color('#2A2A2A', 'black'),
+  // Built around green rather than the teal/blue it started with. The Pebble
+  // palette is a fixed 64-colour cube, so these are the nearest members of it:
+  // asking for an arbitrary hex silently snaps to whatever is closest anyway.
+  header: Feature.color('#005500', 'black'),
   headerText: Feature.color('white', 'white'),
-  headerAccent: Feature.color('#00AAFF', 'white'),
-  tile: Feature.color('#3B3B3B', 'black'),
-  tileOn: Feature.color('#00A852', 'white'),
-  tileUnavailable: Feature.color('#7A2020', 'black'),
-  tileArmed: Feature.color('#FF8800', 'white'),
-  error: Feature.color('#C0392B', 'black'),
+  headerAccent: Feature.color('#AAFF55', 'white'),
+  tile: Feature.color('#555555', 'black'),
+  tileOn: Feature.color('#00AA55', 'white'),
+  tileUnavailable: Feature.color('#AA0000', 'black'),
+  tileArmed: Feature.color('#FFAA00', 'white'),
+  error: Feature.color('#FF5500', 'black'),
   text: Feature.color('white', 'white'),
   textOn: Feature.color('white', 'black'),
-  textMuted: Feature.color('#B0B0B0', 'white'),
   // White reads against every tile state (grey off, green on, red
-  // unavailable, amber armed); the old blue vanished against the header and
-  // was low-contrast on green.
+  // unavailable, amber armed); a coloured frame vanished against whichever
+  // state happened to be near it.
   select: Feature.color('white', 'white'),
+  textMuted: Feature.color('#AAAAAA', 'white'),
 };
 
 // States that mean "this thing is on right now". Everything else is treated as
@@ -91,6 +94,63 @@ var isOn = function(state) {
 
 var isUnavailable = function(state) {
   return state === 'unavailable' || state === 'unknown';
+};
+
+// Raw HA states are snake_case machine strings that neither fit a tile nor read
+// well ("armed_home" clipped to "armed_ho" on a real watch). Tiles can override
+// any of this with their own `map`.
+var STATE_WORDS = {
+  'armed_home': 'Armed',
+  'armed_away': 'Away',
+  'armed_night': 'Night',
+  'armed_vacation': 'Vac',
+  'disarmed': 'Off',
+  'triggered': 'ALARM',
+  'pending': 'Pending',
+  'arming': 'Arming',
+  'not_home': 'Away',
+  'home': 'Home',
+  'on': 'On',
+  'off': 'Off',
+  'open': 'Open',
+  'closed': 'Shut',
+  'docked': 'Docked',
+  'charging': 'Charge',
+  'cleaning': 'Clean',
+  'returning': 'Return',
+  'idle': 'Idle',
+  'paused': 'Paused',
+  'up': 'Up',
+  'down': 'DOWN',
+  'ready': 'Ready',
+  'run': 'Running',
+  'unavailable': '-',
+  'unknown': '-',
+};
+
+// Anything wider than this in the big value font will clip, so the renderer
+// steps down a size rather than truncating mid-word.
+var VALUE_WIDE_CHARS = 7;
+
+var formatValue = function(raw, tile) {
+  var value = (raw === undefined || raw === null) ? '' : String(raw);
+
+  if (tile && tile.map && tile.map[value] !== undefined) {
+    return String(tile.map[value]);
+  }
+
+  var key = value.toLowerCase();
+  if (STATE_WORDS[key] !== undefined) {
+    return STATE_WORDS[key];
+  }
+
+  // Numbers are usually the interesting part; drop noise decimals.
+  var asNumber = parseFloat(value);
+  if (!isNaN(asNumber) && String(asNumber) === value.trim() && value.indexOf('.') !== -1) {
+    return String(Math.round(asNumber * 10) / 10);
+  }
+
+  return value.replace(/_/g, ' ');
 };
 
 class DashboardPage extends BasePage {
@@ -419,29 +479,39 @@ class DashboardPage extends BasePage {
             if (tile.entity) {
                 var entity = stateDict[tile.entity];
                 var state = entity ? entity.state : 'unavailable';
-                stateLabel = state;
+                var raw = state;
 
                 // A value tile can show an attribute instead of the state, so
                 // "time left" can come off a printer without needing a template
                 // sensor per field.
                 if (tile.attribute && entity && entity.attributes) {
                     var attr = entity.attributes[tile.attribute];
-                    stateLabel = (attr === undefined || attr === null) ? '-' : String(attr);
+                    raw = (attr === undefined || attr === null) ? '' : attr;
                 }
-                if (tile.unit && !isUnavailable(state)) {
+
+                stateLabel = formatValue(raw, tile);
+                if (tile.unit && !isUnavailable(state) && stateLabel !== '-') {
                     stateLabel += tile.unit;
                 }
 
                 if (isUnavailable(state)) {
                     background = colours.tileUnavailable;
-                    stateLabel = tile.type === 'value' ? '-' : state;
                 } else if (tile.type === 'value') {
                     // Readings are not "on"; colouring them green would imply a
-                    // state they do not have.
-                    background = colours.tile;
+                    // state they do not have. `alert` marks the values that ARE
+                    // worth shouting about (a door left open, a service down).
+                    background = (tile.alert && String(state) === String(tile.alert))
+                        ? colours.tileUnavailable : colours.tile;
                 } else if (isOn(state)) {
                     background = colours.tileOn;
                     textColour = colours.textOn;
+                }
+
+                // Long words clip in the big value font, so step down a size
+                // rather than cutting a word in half.
+                if (tile.type === 'value') {
+                    view.stateText.font(stateLabel.length > VALUE_WIDE_CHARS
+                        ? 'gothic-18-bold' : 'gothic-24-bold');
                 }
             }
 
@@ -451,9 +521,12 @@ class DashboardPage extends BasePage {
                 stateLabel = 'confirm?';
             }
 
-            // Selection is marked two ways, because a thin border alone was
-            // hard to pick out at a glance: a thick bright frame, and a caret
-            // on the state line.
+            // Selection is a thick bright frame and nothing else.
+            //
+            // It used to also prefix the value with a caret. That character has
+            // no glyph in the watch's font, so every selected tile rendered a
+            // hollow box - the app's own font cannot be assumed to have
+            // anything outside plain ASCII, so nothing here uses a symbol.
             //
             // Deliberately NOT done by recolouring the tile: the background
             // carries whether the thing is on or off, and overwriting it would
@@ -461,12 +534,18 @@ class DashboardPage extends BasePage {
             // off. Selection is chrome; state is information.
             var selected = (i === this.tileIndex);
 
+            // The label is deliberately quieter than the value, but only on the
+            // plain grey tile. Muted grey on a saturated green or red loses too
+            // much contrast to read at a glance, so a coloured tile gets a
+            // full-strength label.
+            var quietLabel = (background === colours.tile) && !selected;
+
             view.rect.backgroundColor(background);
             view.rect.borderColor(selected ? colours.select : 'clear');
             view.rect.borderWidth(selected ? SELECT_BORDER : 0);
-            view.label.color(textColour);
+            view.label.color(quietLabel ? colours.textMuted : textColour);
             view.stateText.color(textColour);
-            view.stateText.text(selected && stateLabel ? '▸ ' + stateLabel : stateLabel);
+            view.stateText.text(stateLabel);
         }
     }
 

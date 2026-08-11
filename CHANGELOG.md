@@ -7,6 +7,30 @@ are documented here. Format follows [Keep a Changelog](https://keepachangelog.co
 Upstream releases are not repeated here; this file starts where the fork diverges
 (upstream 2.0).
 
+## [2.6.0] - 2026-08-10
+
+### Fixed
+
+- **Every selected tile rendered a hollow box.** The selection marker used a
+  caret character with no glyph in the watch font. Removed; selection is the
+  frame alone. Nothing in this app may use a character outside plain ASCII.
+- **Long values were clipped mid-word** ("armed_home" showed as "armed_ho").
+  States are now mapped to short words (`armed_home` to "Armed", `not_home` to
+  "Away"), tiles can override any of it with their own `map`, and a value too
+  wide for the big font steps down a size instead of cutting a word in half.
+
+### Changed
+
+- **Palette moved from teal/blue to green.** The Pebble palette is a fixed
+  64-colour cube, so the values chosen are members of it; asking for an
+  arbitrary hex silently snaps to the nearest one anyway.
+- **Labels stay muted only on plain tiles.** Muted grey on a saturated green or
+  red lost too much contrast to read at a glance, so coloured tiles get a
+  full-strength label.
+- **`alert` tile option** paints a value tile red when it holds a named state,
+  so an exception (oven on, fridge door open, a service down) is visible without
+  reading the words.
+
 ## [2.5.0] - 2026-08-10
 
 ### Added
