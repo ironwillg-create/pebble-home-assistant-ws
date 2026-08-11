@@ -69,13 +69,6 @@ template:
                  or is_state('binary_sensor.worthington_doorbell_person_detected', 'on')
                  or is_state('binary_sensor.worthington_doorbell_package_delivered', 'on') %}
               Door
-            {% elif states('sensor.services_down') | int(0) > 0
-                 or is_state('binary_sensor.kitchen_refrigerator_fridge_door', 'on')
-                 or is_state('binary_sensor.kitchen_refrigerator_freezer_door', 'on')
-                 or is_state('sensor.kitchen_range_machine_state', 'run')
-                 or is_state('sensor.car_battery_status', 'low')
-                 or is_state('binary_sensor.car_check_engine', 'on') %}
-              Alerts
             {% elif not is_state('person.will_garza', 'home') %}
               Away
             {% else %}
@@ -255,9 +248,9 @@ template:
             {% set ns = namespace(screens=[]) %}
             {% if printing %}{% set ns.screens = ns.screens + [print] %}{% endif %}
             {% if at_door %}{% set ns.screens = ns.screens + [door] %}{% endif %}
-            {% if ns2.alerts | count > 0 %}{% set ns.screens = ns.screens + [alerts] %}{% endif %}
             {% if not is_state('person.will_garza', 'home') %}
               {% set ns.screens = ns.screens + [away] %}
             {% endif %}
             {% set ns.screens = ns.screens + [home, lights, scenes, house, more] %}
+            {% if ns2.alerts | count > 0 %}{% set ns.screens = ns.screens + [alerts] %}{% endif %}
             {{ ns.screens }}
