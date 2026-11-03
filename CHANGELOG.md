@@ -7,6 +7,11 @@ are documented here. Format follows [Keep a Changelog](https://keepachangelog.co
 Upstream releases are not repeated here; this file starts where the fork diverges
 (upstream 2.0).
 
+## [2.8] - 2026-11-03
+
+### Added
+- Launcher icon: the Digital Homestead HomeOS house, cropped, scaled 1.75x, centred and outlined for the Pebble's grey launcher (`resources/images/menu_icon.png`). Replaces `appicon.png` as the menu icon (Will's 8C, Garza homestead build).
+
 ## [2.7.1] - 2026-08-10
 
 ### Changed

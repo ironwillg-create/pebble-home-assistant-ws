@@ -8,7 +8,7 @@
   "resources": {
     "media": [
       {
-        "file": "images/appicon.png",
+        "file": "images/menu_icon.png",
         "menuIcon": true,
         "name": "IMAGE_MENU_ICON",
         "type": "bitmap"
@@ -196,7 +196,7 @@
   ],
   "uuid": "61ae3254-ce00-49db-aad8-23143f649b90",
   "versionCode": 1,
-  "versionLabel": "2.7",
+  "versionLabel": "2.8",
   "watchapp": {
     "hiddenApp": false,
     "watchface": false
