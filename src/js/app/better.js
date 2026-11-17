@@ -128,9 +128,9 @@ function phoneString() {
 /* --------------------------------------------------------------- transport */
 
 /* status(msg) is called once per report with the words for the watch row. */
-function post(entry, token, status) {
+function post(entry, token, status, url) {
   var xhr = new XMLHttpRequest();
-  xhr.open('POST', URL, true);
+  xhr.open('POST', url || URL, true);
   xhr.setRequestHeader('Authorization', 'Bearer ' + token);
   xhr.setRequestHeader('Content-Type', 'application/json');
   try {
@@ -168,13 +168,16 @@ function post(entry, token, status) {
   xhr.send(JSON.stringify(entry));
 }
 
-/* opts: {app, version, token: function () -> string}
+/* opts: {app, version, token: function () -> string, url (optional)}
+ * url defaults to the Jarvis host. Craft Agents passes voice.iccfloors.app,
+ * the same app under the host its Internet permission already names.
  * The token function may return '' when the app has none configured yet; the
  * report is still saved and goes out on a later launch once there is one. */
 function Better(opts) {
   this.app = opts.app;
   this.version = opts.version;
   this.token = opts.token;
+  this.url = opts.url || URL;
 }
 
 /* Build, save and send one report. r: {text, screen, log (string, '\n' lines)}.
@@ -207,7 +210,7 @@ Better.prototype.file = function (r, status) {
   var token = this.token();
   if (!token) return status('Saved, no token yet');
   console.log('better: filing report ' + entry.client_id);
-  post(entry, token, status);
+  post(entry, token, status, this.url);
 };
 
 /* Resend anything left over from an earlier launch. Quiet unless asked. */
@@ -222,7 +225,7 @@ Better.prototype.drain = function (status) {
   for (var i = 0; i < box.length; i++) {
     if (box[i].app !== this.app) continue;
     console.log('better: resending ' + box[i].client_id);
-    post(box[i], token, status || function () {});
+    post(box[i], token, status || function () {}, this.url);
   }
 };
 
