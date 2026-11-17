@@ -7,6 +7,24 @@ are documented here. Format follows [Keep a Changelog](https://keepachangelog.co
 Upstream releases are not repeated here; this file starts where the fork diverges
 (upstream 2.0).
 
+## [2.9] - 2026-11-17
+
+### Added
+- **Report a problem** (the Better Button), always the last row of the main menu, outside
+  `main_menu_order` so no custom order can hide it. With a dashboard the main menu is reached from
+  the dashboard's `app.menu` tile ("Browse"). SELECT opens dictation; the report goes to Jarvis
+  `/api/watch/report` as app `ha-watch` (an issue on ironwillg-create/homeos), with the screen, the
+  last 16 app events (`helpers.log_message` now keeps them even with debug logging off), the watch
+  model and firmware, and the last 50 console lines. Lines that look like a token are blanked
+  first. It authenticates with the `speech_token` setting (the Jarvis Pebble token); with none set
+  the row reads "Set the Jarvis token in Settings" and posts nothing. A localStorage outbox keeps
+  a report made with no signal and resends it on every launch; a resend carries the same
+  client_id, so it never files twice. Code: `src/js/app/ReportService.js`, `src/js/app/better.js`
+  (shared with the Grocery, Intake and Craft Agents watchapps).
+
+### Changed
+- `Constants.appVersion` was still '2.7' through the 2.8 release; both now read 2.9.
+
 ## [2.8] - 2026-11-03
 
 ### Added

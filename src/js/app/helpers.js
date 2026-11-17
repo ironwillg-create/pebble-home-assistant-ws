@@ -207,7 +207,20 @@ function shouldShowDomainMenu(entities, menuSetting, options) {
  * @param {string} msg - Message to log
  * @param {*} extra - Optional extra data to log
  */
+// The last few app events, kept whatever debugMode says, for "Report a problem"
+// (ReportService). RAM only, short lines.
+var recentEvents = [];
+
+function recent_events() {
+    return recentEvents.slice();
+}
+
 function log_message(msg, extra) {
+    var d = new Date();
+    recentEvents.push(('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) +
+        ':' + ('0' + d.getSeconds()).slice(-2) + ' ' + String(msg).slice(0, 60));
+    if (recentEvents.length > 16) { recentEvents.shift(); }
+
     var Constants = require('app/Constants');
     if (!Constants.debugMode) return;
 
@@ -220,6 +233,7 @@ function log_message(msg, extra) {
 }
 
 module.exports = {
+    recent_events: recent_events,
     sortObjectByKeys: sortObjectByKeys,
     cloneObject: cloneObject,
     ucword: ucword,

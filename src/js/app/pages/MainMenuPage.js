@@ -9,6 +9,7 @@ var EntityService = require('app/EntityService');
 var EntityListPage = require('app/pages/EntityListPage');
 var RelativeTimeUpdater = require('app/RelativeTimeUpdater');
 var helpers = require('app/helpers');
+var ReportService = require('app/ReportService');
 
 // Lazy imports to avoid circular dependencies
 function getFavoritesPage() { return require('app/pages/FavoritesPage'); }
@@ -101,6 +102,12 @@ class MainMenuPage extends BasePage {
                 i++;
             }
         }
+
+        // "Report a problem" is always the last row, outside main_menu_order,
+        // so no custom order can hide the one way to say something is broken.
+        this.reportIndex = i;
+        this.menu.item(0, i, this.reportItem());
+        i++;
 
         // Subscribe to state changes for pinned entities
         if (pinnedEntityIds.length > 0) {
@@ -325,6 +332,25 @@ class MainMenuPage extends BasePage {
             default:
                 return null;
         }
+    }
+
+    /**
+     * The Better Button row. SELECT dictates; the subtitle shows the answer.
+     */
+    reportItem() {
+        var self = this;
+        return {
+            id: 'report',
+            title: 'Report a problem',
+            subtitle: ReportService.subtitle(),
+            on_click: function(e) {
+                ReportService.start('Main menu', function(msg) {
+                    if (self.menu && typeof self.reportIndex === 'number') {
+                        self.menu.item(0, self.reportIndex, self.reportItem());
+                    }
+                });
+            }
+        };
     }
 
     /**

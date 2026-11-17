@@ -282,5 +282,7 @@ ConnectionService.init({
 
 // === Start App ===
 SettingsManager.load();
+// Resend any "Report a problem" still waiting from an earlier launch.
+require('app/ReportService').drain();
 loadingCard.show();
 ConnectionService.connect();
