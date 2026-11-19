@@ -7,6 +7,11 @@ are documented here. Format follows [Keep a Changelog](https://keepachangelog.co
 Upstream releases are not repeated here; this file starts where the fork diverges
 (upstream 2.0).
 
+## [2.10] - 2026-11-19
+
+### Changed
+- One-tone launcher icon (Digital Homestead) that reads in PebbleOS dark mode, where the launcher shows every icon as its negative.
+
 ## [2.9] - 2026-11-17
 
 ### Added
